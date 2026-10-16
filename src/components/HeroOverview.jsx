@@ -1,11 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { IndianRupee, Building2 } from 'lucide-react';
 
 export default function HeroOverview() {
+  const [statsData, setStatsData] = useState({
+    annualGrant: 2500000,
+    totalSpent: 0,
+    remainingBalance: 2500000
+  });
+
+  useEffect(() => {
+    fetch('http://localhost:5000/api/dashboard/stats')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data) {
+          setStatsData({
+            annualGrant: data.data.annualGrant || 2500000,
+            totalSpent: data.data.totalSpent || 0,
+            remainingBalance: data.data.remainingBalance || 2500000
+          });
+        }
+      })
+      .catch(err => console.error("Failed to fetch stats:", err));
+  }, []);
+
   const stats = [
-    { label: "Total Annual Grant", value: 2500000, prefix: "₹" },
-    { label: "Total Spent YTD", value: 1245000, prefix: "₹" },
-    { label: "Remaining Balance", value: 1255000, prefix: "₹" }
+    { label: "Total Annual Grant", value: statsData.annualGrant, prefix: "₹" },
+    { label: "Total Spent YTD", value: statsData.totalSpent, prefix: "₹" },
+    { label: "Remaining Balance", value: statsData.remainingBalance, prefix: "₹" }
   ];
 
   return (
@@ -24,7 +45,7 @@ export default function HeroOverview() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {stats.map((stat, i) => {
-          const percentage = (stat.value / 2500000) * 100;
+          const percentage = (stat.value / (statsData.annualGrant || 1)) * 100;
           return (
             <div key={i} className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
               <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-2">{stat.label}</p>
@@ -35,7 +56,7 @@ export default function HeroOverview() {
               <div className="w-full bg-slate-900 rounded-full h-2">
                 <div 
                   className={`h-2 rounded-full ${i === 1 ? 'bg-teal-500' : 'bg-teal-600'}`} 
-                  style={{ width: `${percentage}%` }}
+                  style={{ width: `${Math.min(percentage, 100)}%` }}
                 ></div>
               </div>
             </div>

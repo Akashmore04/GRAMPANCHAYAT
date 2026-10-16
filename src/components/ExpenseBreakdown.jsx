@@ -1,21 +1,112 @@
-import React, { useState } from 'react';
-import { IndianRupee } from 'lucide-react';
-
-const MOCK_TRANSACTIONS = [
-  { id: 'TXN-901', title: 'Main Road Phase 1 Paving', category: 'Infrastructure', date: '2026-08-15', vendor: 'Shree Constructions', receipt: 'INV-4022', amount: 450000 },
-  { id: 'TXN-902', title: 'Primary School Roof Repair', category: 'Education', date: '2026-08-10', vendor: 'Local Builders Co.', receipt: 'INV-4010', amount: 85000 },
-  { id: 'TXN-903', title: 'Water Pump Installation', category: 'Water Supply', date: '2026-08-05', vendor: 'JalTech Solutions', receipt: 'INV-3998', amount: 120000 },
-  { id: 'TXN-904', title: 'Street Light Bulbs (50 units)', category: 'Electricity', date: '2026-08-01', vendor: 'Laxmi Electricals', receipt: 'INV-3985', amount: 25000 },
-  { id: 'TXN-905', title: 'Panchayat Office WiFi Renewal', category: 'Admin', date: '2026-07-28', vendor: 'BharatNet', receipt: 'INV-3960', amount: 5000 },
-];
+import React, { useState, useEffect } from 'react';
+import { IndianRupee, Trash2, Edit2 } from 'lucide-react';
 
 export default function ExpenseBreakdown() {
   const [filter, setFilter] = useState('All');
   const [category, setCategory] = useState('All Categories');
+  const [transactions, setTransactions] = useState([]);
+
+  // Add form state
+  const [title, setTitle] = useState('');
+  const [addCategory, setAddCategory] = useState('Infrastructure');
+  const [amount, setAmount] = useState('');
+  const [vendor, setVendor] = useState('');
+
+  const fetchExpenses = () => {
+    let url = `http://localhost:5000/api/expenses?category=${encodeURIComponent(category)}&timeframe=${filter}`;
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+         if(data.success) setTransactions(data.data);
+      })
+      .catch(err => console.error(err));
+  };
+
+  useEffect(() => {
+    fetchExpenses();
+  }, [filter, category]);
+
+  const handleAdd = (e) => {
+    e.preventDefault();
+    fetch('http://localhost:5000/api/expenses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        category: addCategory,
+        amount: parseFloat(amount),
+        date: new Date().toISOString().split('T')[0],
+        vendor
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        setTitle('');
+        setAmount('');
+        setVendor('');
+        fetchExpenses();
+      }
+    });
+  };
+
+  const handleEdit = (txn) => {
+    const newAmount = prompt(`Enter new amount for ${txn.title}:`, txn.amount);
+    if (newAmount && !isNaN(newAmount)) {
+      fetch(`http://localhost:5000/api/expenses/${txn.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...txn, amount: parseFloat(newAmount) })
+      }).then(() => fetchExpenses());
+    }
+  };
+
+  const handleDelete = (id) => {
+    if (confirm('Delete this expense?')) {
+      fetch(`http://localhost:5000/api/expenses/${id}`, {
+        method: 'DELETE'
+      }).then(() => fetchExpenses());
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 mb-8">
+      
+      {/* Add Expense Form inline */}
+      <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg mb-8">
+        <h3 className="text-xl font-bold text-white mb-4">Expense Tracker - Log New Expense</h3>
+        <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+          <div className="md:col-span-1">
+            <label className="block text-xs text-slate-400 mb-1">Work / Title</label>
+            <input required type="text" value={title} onChange={e=>setTitle(e.target.value)} className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded px-3 py-2 text-sm focus:ring-teal-500 outline-none" />
+          </div>
+          <div className="md:col-span-1">
+            <label className="block text-xs text-slate-400 mb-1">Category</label>
+            <select required value={addCategory} onChange={e=>setAddCategory(e.target.value)} className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded px-3 py-2 text-sm focus:ring-teal-500 outline-none">
+              <option>Infrastructure</option>
+              <option>Education</option>
+              <option>Water Supply</option>
+              <option>Electricity</option>
+              <option>Admin</option>
+            </select>
+          </div>
+          <div className="md:col-span-1">
+            <label className="block text-xs text-slate-400 mb-1">Vendor</label>
+            <input type="text" value={vendor} onChange={e=>setVendor(e.target.value)} className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded px-3 py-2 text-sm focus:ring-teal-500 outline-none" />
+          </div>
+          <div className="md:col-span-1">
+            <label className="block text-xs text-slate-400 mb-1">Amount (₹)</label>
+            <input required type="number" value={amount} onChange={e=>setAmount(e.target.value)} className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded px-3 py-2 text-sm focus:ring-teal-500 outline-none" />
+          </div>
+          <div className="md:col-span-1">
+            <button type="submit" className="w-full bg-teal-600 hover:bg-teal-500 text-white font-semibold py-2 px-4 rounded transition-colors text-sm">
+              Add Expense
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 mb-4">
         <div>
           <h2 className="text-3xl font-bold text-white mb-2">Where Money Goes</h2>
           <p className="text-slate-400">Detailed breakdown of all Panchayat expenditures.</p>
@@ -48,6 +139,7 @@ export default function ExpenseBreakdown() {
             <option>Education</option>
             <option>Water Supply</option>
             <option>Electricity</option>
+            <option>Admin</option>
           </select>
         </div>
       </div>
@@ -63,10 +155,11 @@ export default function ExpenseBreakdown() {
                 <th className="p-4 font-semibold">Vendor / Supplier</th>
                 <th className="p-4 font-semibold">Receipt / Inv #</th>
                 <th className="p-4 font-semibold text-right">Amount</th>
+                <th className="p-4 font-semibold text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">
-              {MOCK_TRANSACTIONS.map((txn) => (
+              {transactions.map((txn) => (
                 <tr key={txn.id} className="hover:bg-slate-700/30 transition-colors">
                   <td className="p-4 text-slate-200 font-medium">{txn.title}</td>
                   <td className="p-4">
@@ -76,25 +169,27 @@ export default function ExpenseBreakdown() {
                   </td>
                   <td className="p-4 text-slate-400 text-sm">{txn.date}</td>
                   <td className="p-4 text-slate-300 text-sm">{txn.vendor}</td>
-                  <td className="p-4 text-slate-400 text-sm font-mono">{txn.receipt}</td>
+                  <td className="p-4 text-slate-400 text-sm font-mono">{txn.receipt_no}</td>
                   <td className="p-4 text-right text-teal-400 font-bold flex items-center justify-end gap-1">
                     <IndianRupee size={14} />
                     {txn.amount.toLocaleString('en-IN')}
                   </td>
+                  <td className="p-4 text-center">
+                    <button onClick={() => handleEdit(txn)} className="text-blue-400 hover:text-blue-300 mx-2"><Edit2 size={16} /></button>
+                    <button onClick={() => handleDelete(txn.id)} className="text-red-400 hover:text-red-300 mx-2"><Trash2 size={16} /></button>
+                  </td>
                 </tr>
               ))}
+              {transactions.length === 0 && (
+                <tr>
+                  <td colSpan="7" className="p-8 text-center text-slate-500">No expenses found.</td>
+                </tr>
+              )}
             </tbody>
           </table>
-        </div>
-        {/* Pagination placeholder */}
-        <div className="p-4 border-t border-slate-700 bg-slate-900/50 flex justify-between items-center text-sm text-slate-400">
-          <span>Showing 1 to 5 of 124 entries</span>
-          <div className="flex gap-2">
-            <button className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700">Prev</button>
-            <button className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700">Next</button>
-          </div>
         </div>
       </div>
     </div>
   );
 }
+
